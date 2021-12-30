@@ -1,0 +1,49 @@
+import time
+from openpyxl import load_workbook, Workbook
+import pyperclip
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+filename='filename.xlsx'
+wb=load_workbook(filename,data_only=True)
+wwb=Workbook()
+ws = wb.active
+s = Service('./chromedriver.exe')
+driver = webdriver.Chrome(service=s)
+driver.get("https://speller.cs.pusan.ac.kr/")
+
+for count in range(205,302):
+    word=ws['C'+str(count)].value
+    word=word.replace('_x000D_','')
+    time.sleep(2)
+    WebDriverWait(driver, timeout=360).until(
+        EC.presence_of_element_located((By.ID, 'text1')))
+    driver.find_element(By.ID,'text1').send_keys(word)
+    driver.find_element(By.ID,'btnCheck').click()
+    result = driver.find_element(By.ID,'tdBody').text
+
+    if result.find("오류를 찾지 못했습니다") != -1:
+        ws['D' + str(count)] = word
+        print("교정X " + str(count) + ":" + word)
+        driver.find_element(By.ID,'btnGoBackEditor').click()
+        driver.find_element(By.ID,'btnRenew').click()
+        wb.save(filename)
+    else:
+        uls = driver.find_elements(By.XPATH,'//font[starts-with (@id,"ul")]')
+        for i in uls:
+            i.click()
+        time.sleep(1)
+
+        WebDriverWait(driver, timeout=360).until(
+            EC.presence_of_element_located((By.ID, 'btnOrgCopy')))
+        driver.find_element(By.ID,'btnOrgCopy').click()
+        result_text = pyperclip.paste()
+        print("교정 "+str(count)+":"+result_text)
+        time.sleep(2)
+        WebDriverWait(driver, timeout=360).until(
+            EC.presence_of_element_located((By.ID, 'btnRenew2')))
+        driver.find_element(By.ID,'btnRenew2').click()
+        ws['D'+str(count)]=result_text
+        wb.save(filename)
